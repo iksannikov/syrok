@@ -2,7 +2,7 @@ import json
 import os
 import subprocess
 import time
-
+import ollama
 import pyaudio
 import requests
 from dotenv import load_dotenv
@@ -28,8 +28,33 @@ stream = mic.open(
 )  #
 stream.start_stream()
 timefromepoch = 0
+def askp(text : str):
+    payload = {
+        "model": "gemma3:4b",
+        "messages": [
+            {
+                "role": "system",
+                "content": " Ты - голосовой помощник по имени сырок.отвечай кратко и по делу,максимум - одно предложение,и не говори и так понятных вещей, и будь приветлив",
+            },
+            {"role": "user", "content": text},
+        ],
+        "stream": True,
+    }
+    response = requests.post(url, json=payload, stream=True)
 
-
+    # Iterate over the response line by line as tokens are sent over the network
+    #
+    tosay = ""
+    stopchars = {" ", ".", "," , ";", ":", "?", "!","", "-"}
+    for line in response.iter_lines():
+        if line:
+            # Decode the byte line into a string and load the JSON payload
+            chunk = json.loads(line.decode("utf-8"))
+            content = chunk.get("message", {}).get("content", "")
+            tosay += content
+            if stopchars.__contains__(tosay[-1]):
+                say(tosay)
+                tosay = ""
 def ask(text: str) -> str:  # функция для обработки запросов на сервер
     payload = {
         "model": "gemma3:4b",
@@ -91,7 +116,7 @@ while True:
             promptunedited = text[5 : len(text)]
             promptedited = f"{promptunedited}"
             if potok:
-                print("поток пока что не доступен")
+                askp(promptedited)
             else:
                 try:
                     txt = ask(promptedited)
@@ -111,7 +136,7 @@ while True:
             promptunedited = text
             promptedited = f"{promptunedited}"
             if potok:
-                print("поток пока что не доступен")
+                askp(promptedited)
             else:
                 try:
                     txt = ask(promptedited)
